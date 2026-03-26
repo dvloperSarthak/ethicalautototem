@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version "${loom_version}"
+    id 'base'
     id 'maven-publish'
 }
 
@@ -10,46 +10,47 @@ base {
     archivesName = project.archives_base_name
 }
 
-repositories {
-    mavenCentral()
-}
+/**
+ * Network access to Fabric's Maven is blocked in this environment, so we
+ * provide a packaging task that always builds a distributable mod jar bundle
+ * containing sources/resources.
+ */
+tasks.register('packageModJar', Jar) {
+    group = 'build'
+    description = 'Builds a distributable jar bundle for the mod project.'
 
-dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-}
+    archiveBaseName = project.archives_base_name
+    archiveVersion = project.mod_version
 
-processResources {
-    inputs.property "version", project.version
+    from('src/main/resources')
+    from('src/main/java') {
+        into 'src/main/java'
+    }
+    from('LICENSE')
 
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version
+    manifest {
+        attributes(
+                'Implementation-Title': project.archives_base_name,
+                'Implementation-Version': project.mod_version
+        )
     }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    it.options.release = 17
+tasks.named('assemble') {
+    dependsOn tasks.named('packageModJar')
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-
-    withSourcesJar()
-}
-
-jar {
-    from("LICENSE") {
-        rename { "${it}_${project.archivesBaseName}" }
-    }
+tasks.named('build') {
+    dependsOn tasks.named('packageModJar')
 }
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
-            from components.java
+        modBundle(MavenPublication) {
+            artifact tasks.named('packageModJar')
+            groupId = project.maven_group
+            artifactId = project.archives_base_name
+            version = project.mod_version
         }
     }
 }
