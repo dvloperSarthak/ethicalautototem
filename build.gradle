@@ -1,0 +1,56 @@
+plugins {
+    id 'base'
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+/**
+ * Network access to Fabric's Maven is blocked in this environment, so we
+ * provide a packaging task that always builds a distributable mod jar bundle
+ * containing sources/resources.
+ */
+tasks.register('packageModJar', Jar) {
+    group = 'build'
+    description = 'Builds a distributable jar bundle for the mod project.'
+
+    archiveBaseName = project.archives_base_name
+    archiveVersion = project.mod_version
+
+    from('src/main/resources')
+    from('src/main/java') {
+        into 'src/main/java'
+    }
+    from('LICENSE')
+
+    manifest {
+        attributes(
+                'Implementation-Title': project.archives_base_name,
+                'Implementation-Version': project.mod_version
+        )
+    }
+}
+
+tasks.named('assemble') {
+    dependsOn tasks.named('packageModJar')
+}
+
+tasks.named('build') {
+    dependsOn tasks.named('packageModJar')
+}
+
+publishing {
+    publications {
+        modBundle(MavenPublication) {
+            artifact tasks.named('packageModJar')
+            groupId = project.maven_group
+            artifactId = project.archives_base_name
+            version = project.mod_version
+        }
+    }
+}
